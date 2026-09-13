@@ -1,0 +1,19 @@
+# Secret environment files
+backend/.env
+.env
+
+# Google Service Account JSON keys
+*.json
+!backend/package.json
+!backend/package-lock.json
+!backend/vercel.json
+
+# Node modules
+node_modules/
+backend/node_modules/
+
+# OS / Editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
