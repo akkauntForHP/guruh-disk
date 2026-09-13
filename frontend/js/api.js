@@ -55,12 +55,12 @@ async function uploadFiles(folderId, fileList) {
   for (let i = 0; i < fileList.length; i++) {
     formData.append('files', fileList[i]);
   }
-  
+
   const res = await fetch(`${API_URL}/files?action=upload&folderId=${folderId}`, {
     method: 'POST',
     body: formData
   });
-  
+
   if (!res.ok) throw new Error('Yuklashda xatolik');
   return res.json();
 }
