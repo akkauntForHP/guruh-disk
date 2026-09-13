@@ -40,7 +40,10 @@
 
     <!-- Loader -->
     <div id="loader" class="absolute inset-0 bg-white/80 z-50 flex justify-center items-center backdrop-blur-sm">
-      <div class="animate-spin rounded-full h-12 w-12 border-4 border-blue-500 border-t-transparent"></div>
+      <div class="flex flex-col items-center gap-3">
+        <div class="animate-spin rounded-full h-12 w-12 border-4 border-blue-500 border-t-transparent"></div>
+        <span id="loader-text" class="text-sm text-gray-500"></span>
+      </div>
     </div>
 
     <!-- Error Toast -->
@@ -88,13 +91,25 @@
         </div>
       </div>
 
-      <div class="bg-white rounded-lg shadow-sm border border-gray-200 flex-1 overflow-y-auto">
+      <!-- Drag & Drop Zone -->
+      <div id="drop-zone"
+        class="relative bg-white rounded-lg shadow-sm border border-gray-200 flex-1 overflow-y-auto">
+
+        <!-- Drag overlay (faqat drag paytida ko'rinadi) -->
+        <div id="drag-overlay"
+          class="absolute inset-0 bg-blue-50/95 border-2 border-dashed border-blue-400 rounded-lg z-10 hidden flex flex-col items-center justify-center gap-3 pointer-events-none">
+          <i class="fa-solid fa-cloud-arrow-up text-5xl text-blue-400"></i>
+          <p class="text-lg font-medium text-blue-500">Faylni shu yerga tashlang</p>
+          <p class="text-sm text-blue-400">Google Drive'ga yuklanadi</p>
+        </div>
+
         <ul id="files-list" class="divide-y divide-gray-100">
           <!-- JS orqali to'ldiriladi -->
         </ul>
         <div id="empty-state" class="hidden flex flex-col items-center justify-center py-16 text-gray-400">
-          <i class="fa-solid fa-folder-open text-4xl mb-3"></i>
-          <p>Papka bo'sh</p>
+          <i class="fa-solid fa-cloud-arrow-up text-5xl mb-4 text-gray-300"></i>
+          <p class="font-medium mb-1">Papka bo'sh</p>
+          <p class="text-sm">Fayl yuklash uchun bosing yoki shu yerga tashlang</p>
         </div>
       </div>
     </div>
