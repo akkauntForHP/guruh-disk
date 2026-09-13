@@ -25,6 +25,45 @@ module.exports = async (req, res) => {
       return res.status(200).json({ status: 'ok', message: 'API is working!' });
     }
 
+    // DIAGNOSTIKA: Vercel env va Supabase ulanishini to'liq tekshirish
+    if (method === 'GET' && req.query.action === 'debug') {
+      const url = process.env.SUPABASE_URL || '(TOPILMADI!)';
+      const key = process.env.SUPABASE_ANON_KEY || '(TOPILMADI!)';
+      const gEmail = process.env.GOOGLE_CLIENT_EMAIL || '(TOPILMADI!)';
+      const gKey = process.env.GOOGLE_PRIVATE_KEY ? 'MAVJUD (' + process.env.GOOGLE_PRIVATE_KEY.length + ' belgi)' : '(TOPILMADI!)';
+      const rootFolder = process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID || '(TOPILMADI!)';
+      const botToken = process.env.TELEGRAM_BOT_TOKEN ? 'MAVJUD' : '(TOPILMADI!)';
+
+      // Supabase ulanishni sinab ko'ramiz
+      let supabaseTest = 'Tekshirilmadi';
+      try {
+        const { createClient } = require('@supabase/supabase-js');
+        const testClient = createClient(url, key);
+        const { data, error } = await testClient.from('users').select('id').limit(1);
+        if (error) {
+          supabaseTest = 'XATO: ' + error.message + ' (code: ' + error.code + ', hint: ' + (error.hint || 'yoq') + ')';
+        } else {
+          supabaseTest = 'OK! ' + (data ? data.length : 0) + ' ta natija qaytdi';
+        }
+      } catch (e) {
+        supabaseTest = 'CRASH: ' + e.message;
+      }
+
+      return res.status(200).json({
+        envVars: {
+          SUPABASE_URL: url,
+          SUPABASE_ANON_KEY_BOSHI: key.substring(0, 20) + '...',
+          SUPABASE_ANON_KEY_OXIRI: '...' + key.substring(key.length - 20),
+          SUPABASE_ANON_KEY_UZUNLIGI: key.length,
+          GOOGLE_CLIENT_EMAIL: gEmail,
+          GOOGLE_PRIVATE_KEY: gKey,
+          GOOGLE_DRIVE_ROOT_FOLDER_ID: rootFolder,
+          TELEGRAM_BOT_TOKEN: botToken
+        },
+        supabaseConnectionTest: supabaseTest
+      });
+    }
+
     const supabase = getSupabase();
 
     if (method === 'GET' && req.query.action === 'list') {
