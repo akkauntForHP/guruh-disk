@@ -1,0 +1,16 @@
+{
+  "name": "guruh-disk-backend",
+  "version": "1.0.0",
+  "description": "Backend for Secure Multi-user File Sharing System",
+  "main": "api/users.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.39.0",
+    "bcryptjs": "^2.4.3",
+    "busboy": "^1.6.0",
+    "googleapis": "^129.0.0",
+    "telegraf": "^4.15.3"
+  }
+}
