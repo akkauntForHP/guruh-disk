@@ -36,16 +36,29 @@ const setupBotLogic = (bot) => {
 
   // Start komandasi
   bot.start(async (ctx) => {
-    const supabase = getSupabase();
-    await updateSession(ctx.chat.id, { step: 'idle', selected_user_id: null });
-    const { data: users } = await supabase.from('users').select('id, name').order('id', { ascending: true });
-    
-    let msg = "Salom! Guruh papkangizni tanlang (raqamni yuboring):\n\n";
-    users.forEach((u, i) => {
-      msg += `${i + 1}. ${u.name}\n`;
-    });
-    
-    await ctx.reply(msg);
+    try {
+      const supabase = getSupabase();
+      await updateSession(ctx.chat.id, { step: 'idle', selected_user_id: null });
+      const { data: users, error } = await supabase.from('users').select('id, name').order('id', { ascending: true });
+
+      if (error) {
+        return ctx.reply("Bazada xatolik yuz berdi: " + error.message);
+      }
+
+      if (!users || users.length === 0) {
+        return ctx.reply("Talabalar ro'yxati bo'sh. Iltimos bazani tekshiring.");
+      }
+
+      let msg = "Salom! Guruh papkangizni tanlang (raqamni yuboring):\n\n";
+      users.forEach((u, i) => {
+        msg += `${i + 1}. ${u.name}\n`;
+      });
+
+      await ctx.reply(msg);
+    } catch (e) {
+      console.error(e);
+      await ctx.reply("Tizimda xatolik yuz berdi.");
+    }
   });
 
   // Xabarlarni eshitish
@@ -59,11 +72,11 @@ const setupBotLogic = (bot) => {
     if (session.step === 'idle') {
       const index = parseInt(text) - 1;
       const { data: users } = await supabase.from('users').select('id, name').order('id', { ascending: true });
-      
+
       if (isNaN(index) || index < 0 || index >= users.length) {
         return ctx.reply("Iltimos, to'g'ri raqam kiriting (1 dan 20 gacha).");
       }
-      
+
       const user = users[index];
       await updateSession(chatId, { step: 'waiting_password', selected_user_id: user.id });
       return ctx.reply(`Siz ${user.name} papkasini tanladingiz. Iltimos, parolingizni kiriting:`);
@@ -79,7 +92,7 @@ const setupBotLogic = (bot) => {
       }
 
       const { data: user } = await supabase.from('users').select('*').eq('id', session.selected_user_id).single();
-      
+
       if (!user.password_hash) {
         await updateSession(chatId, { step: 'idle', selected_user_id: null });
         return ctx.reply("Sizda hali parol o'rnatilmagan. Iltimos, avval Veb-sayt orqali kirib, parol o'rnating.");
@@ -95,7 +108,7 @@ const setupBotLogic = (bot) => {
       }
 
       await updateSession(chatId, { step: 'authenticated' });
-      
+
       // Fayllar ro'yxatini jo'natamiz
       const drive = getDriveClient();
       const response = await drive.files.list({
@@ -113,7 +126,7 @@ const setupBotLogic = (bot) => {
       files.forEach((f, i) => {
         msg += `${i + 1}. ${f.name}\n`;
       });
-      
+
       return ctx.reply(msg);
     }
 
@@ -123,7 +136,7 @@ const setupBotLogic = (bot) => {
         await updateSession(chatId, { step: 'deleting_file' });
         return ctx.reply("O'chirilishi kerak bo'lgan fayl tartib raqamini tanlang, chiqish uchun 00 ni jo'nating.");
       }
-      
+
       const index = parseInt(text) - 1;
       const { data: user } = await supabase.from('users').select('*').eq('id', session.selected_user_id).single();
       const drive = getDriveClient();
@@ -190,7 +203,7 @@ const setupBotLogic = (bot) => {
 
     try {
       const msg = await ctx.reply("Fayl Google Drive'ga yuklanmoqda, iltimos kuting...");
-      
+
       const doc = ctx.message.document || ctx.message.video || ctx.message.audio || (ctx.message.photo ? ctx.message.photo[ctx.message.photo.length - 1] : null);
       if (!doc) return ctx.reply("Fayl formati qo'llab-quvvatlanmaydi.");
 
@@ -199,7 +212,7 @@ const setupBotLogic = (bot) => {
       const mimeType = doc.mime_type || 'application/octet-stream';
 
       const link = await ctx.telegram.getFileLink(fileId);
-      
+
       const https = require('https');
       const drive = getDriveClient();
 
