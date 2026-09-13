@@ -122,7 +122,8 @@ module.exports = async (req, res) => {
       const response = await drive.files.list({
         q: `'${folderId}' in parents and trashed = false`,
         fields: 'files(id, name, size, webViewLink, webContentLink, createdTime)',
-        orderBy: 'createdTime desc'
+        orderBy: 'createdTime desc',
+        supportsAllDrives: true
       });
 
       return res.status(200).json({ files: response.data.files });
@@ -136,7 +137,10 @@ module.exports = async (req, res) => {
       const filesToDelete = Array.isArray(fileId) ? fileId : [fileId];
 
       for (const id of filesToDelete) {
-        await drive.files.delete({ fileId: id });
+        await drive.files.delete({ 
+          fileId: id,
+          supportsAllDrives: true 
+        });
       }
 
       return res.status(200).json({ success: true });
@@ -174,7 +178,8 @@ module.exports = async (req, res) => {
               mimeType: file.mimeType,
               body: stream
             },
-            fields: 'id, name, webViewLink, webContentLink'
+            fields: 'id, name, webViewLink, webContentLink',
+            supportsAllDrives: true
           });
           uploadedFiles.push(result.data);
         } catch (uploadErr) {
