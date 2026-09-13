@@ -47,7 +47,8 @@ const setupBotLogic = (bot) => {
             mimeType: 'application/vnd.google-apps.folder',
             parents: [process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID]
           },
-          fields: 'id'
+          fields: 'id',
+          supportsAllDrives: true
         });
         folderId = folder.data.id;
         const supabase = getSupabase();
@@ -62,7 +63,8 @@ const setupBotLogic = (bot) => {
       const response = await drive.files.list({
         q: `'${folderId}' in parents and trashed = false`,
         fields: 'files(id, name, webContentLink)',
-        orderBy: 'createdTime desc'
+        orderBy: 'createdTime desc',
+        supportsAllDrives: true
       });
 
       const files = response.data.files || [];
@@ -196,7 +198,8 @@ const setupBotLogic = (bot) => {
         const response = await drive.files.list({
           q: `'${user.drive_folder_id}' in parents and trashed = false`,
           fields: 'files(id, name, webContentLink)',
-          orderBy: 'createdTime desc'
+          orderBy: 'createdTime desc',
+          supportsAllDrives: true
         });
         const files = response.data.files || [];
 
@@ -232,7 +235,8 @@ const setupBotLogic = (bot) => {
         const response = await drive.files.list({
           q: `'${user.drive_folder_id}' in parents and trashed = false`,
           fields: 'files(id, name)',
-          orderBy: 'createdTime desc'
+          orderBy: 'createdTime desc',
+          supportsAllDrives: true
         });
         const files = response.data.files || [];
 
@@ -242,7 +246,10 @@ const setupBotLogic = (bot) => {
 
         const file = files[index];
         try {
-          await drive.files.delete({ fileId: file.id });
+          await drive.files.delete({ 
+            fileId: file.id,
+            supportsAllDrives: true 
+          });
           return ctx.reply(`✅ "${file.name}" muvaffaqiyatli o'chirildi!\n\nYana o'chirish uchun raqam yuboring, chiqish uchun 00.`);
         } catch (e) {
           console.error('File delete error:', e);
@@ -284,7 +291,8 @@ const setupBotLogic = (bot) => {
             mimeType: 'application/vnd.google-apps.folder',
             parents: [process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID]
           },
-          fields: 'id'
+          fields: 'id',
+          supportsAllDrives: true
         });
         folderId = folder.data.id;
         await supabase.from('users').update({ drive_folder_id: folderId }).eq('id', user.id);
@@ -319,7 +327,8 @@ const setupBotLogic = (bot) => {
             media: {
               mimeType: mimeType,
               body: stream
-            }
+            },
+            supportsAllDrives: true
           });
           await ctx.reply(`✅ "${fileName}" fayli Google Drive papkangizga muvaffaqiyatli saqlandi!`);
         } catch (err) {
@@ -335,21 +344,24 @@ const setupBotLogic = (bot) => {
 };
 
 // Vercel Serverless Webhook export
-// MUHIM: Telegram'ga DARHOL 200 OK javob beramiz, keyin so'rovni qayta ishlaymiz.
-// Bu Vercel serverless muhitida botning qotib qolishini oldini oladi.
 module.exports = async (req, res) => {
   if (req.method !== 'POST') {
     return res.status(200).json({ status: 'Bot webhook is working' });
   }
 
-  // Telegram'ga DARHOL javob beramiz (timeout oldini olish uchun)
-  res.status(200).json({ ok: true });
-
-  // Fon rejimida update'ni qayta ishlaymiz
   try {
     const currentBot = getBot();
+    // Vercel'da jarayon to'xtab qolmasligi uchun avval update'ni to'liq kutamiz
     await currentBot.handleUpdate(req.body);
+    
+    // Telegramga muvaffaqiyatli deb javob beramiz
+    if (!res.headersSent) {
+      res.status(200).json({ ok: true });
+    }
   } catch (error) {
     console.error('Bot handleUpdate error:', error);
+    if (!res.headersSent) {
+      res.status(200).json({ ok: false }); // Xato bo'lsa ham 200 beramiz, Telegram qayta-qayta jo'natmasligi uchun
+    }
   }
 };
