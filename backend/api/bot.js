@@ -335,22 +335,21 @@ const setupBotLogic = (bot) => {
 };
 
 // Vercel Serverless Webhook export
+// MUHIM: Telegram'ga DARHOL 200 OK javob beramiz, keyin so'rovni qayta ishlaymiz.
+// Bu Vercel serverless muhitida botning qotib qolishini oldini oladi.
 module.exports = async (req, res) => {
+  if (req.method !== 'POST') {
+    return res.status(200).json({ status: 'Bot webhook is working' });
+  }
+
+  // Telegram'ga DARHOL javob beramiz (timeout oldini olish uchun)
+  res.status(200).json({ ok: true });
+
+  // Fon rejimida update'ni qayta ishlaymiz
   try {
     const currentBot = getBot();
-    if (req.method === 'POST') {
-      await currentBot.handleUpdate(req.body, res);
-      // Agar handleUpdate javob qaytarmasa, biz javob beramiz
-      if (!res.headersSent) {
-        res.status(200).json({ ok: true });
-      }
-    } else {
-      res.status(200).json({ status: 'Bot webhook is working' });
-    }
+    await currentBot.handleUpdate(req.body);
   } catch (error) {
-    console.error('Bot webhook error:', error);
-    if (!res.headersSent) {
-      res.status(500).json({ error: error.message });
-    }
+    console.error('Bot handleUpdate error:', error);
   }
 };
