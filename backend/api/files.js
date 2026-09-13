@@ -1,9 +1,8 @@
 const { getSupabase, getDriveClient } = require('./utils');
-const Busboy = require('busboy');
-const { PassThrough } = require('stream');
+const { Readable } = require('stream');
 
-module.exports = async (req, res) => {
-  // CORS headers
+// CORS yordamchi funksiya
+const setCors = (res) => {
   res.setHeader('Access-Control-Allow-Credentials', 'true');
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
@@ -11,6 +10,100 @@ module.exports = async (req, res) => {
     'Access-Control-Allow-Headers',
     'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, Authorization'
   );
+};
+
+// Multipart body'dan fayllarni ajratib olish (Busboy o'rniga qo'lda parse)
+const parseMultipart = (req) => {
+  return new Promise((resolve, reject) => {
+    const contentType = req.headers['content-type'] || '';
+    const boundaryMatch = contentType.match(/boundary=(.+)$/);
+    if (!boundaryMatch) {
+      return reject(new Error('Multipart boundary topilmadi. Content-Type: ' + contentType));
+    }
+    const boundary = boundaryMatch[1].trim();
+
+    const chunks = [];
+    req.on('data', (chunk) => chunks.push(chunk));
+    req.on('error', reject);
+    req.on('end', () => {
+      try {
+        const body = Buffer.concat(chunks);
+        const files = [];
+
+        // Boundary bilan ajratish
+        const delimiterBuf = Buffer.from(`--${boundary}`);
+        let start = 0;
+        const parts = [];
+
+        // Body'ni boundarylar bo'yicha bo'lib chiqamiz
+        while (true) {
+          const idx = body.indexOf(delimiterBuf, start);
+          if (idx === -1) break;
+          const end = body.indexOf(delimiterBuf, idx + delimiterBuf.length);
+          if (end === -1) {
+            parts.push(body.slice(idx + delimiterBuf.length));
+            break;
+          }
+          parts.push(body.slice(idx + delimiterBuf.length, end));
+          start = end;
+        }
+
+        for (const part of parts) {
+          // \r\n--boundary-- oxirini olib tashlaymiz
+          const partStr = part.toString('binary');
+          const headerEnd = partStr.indexOf('\r\n\r\n');
+          if (headerEnd === -1) continue;
+
+          const headerSection = partStr.slice(0, headerEnd);
+          // Header qatorlarini ajratamiz
+          const headers = {};
+          headerSection.split('\r\n').forEach(line => {
+            const colonIdx = line.indexOf(':');
+            if (colonIdx > -1) {
+              headers[line.slice(0, colonIdx).trim().toLowerCase()] = line.slice(colonIdx + 1).trim();
+            }
+          });
+
+          const disposition = headers['content-disposition'] || '';
+          if (!disposition.includes('filename')) continue;
+
+          // Fayl nomini ajratib olamiz
+          const filenameMatch = disposition.match(/filename\*?=(?:UTF-8'')?["']?([^"';\r\n]+)["']?/i);
+          if (!filenameMatch) continue;
+          const filename = decodeURIComponent(filenameMatch[1].trim());
+
+          const mimeType = headers['content-type'] || 'application/octet-stream';
+
+          // Fayl content'ini olamiz (binary slice)
+          const contentStart = headerEnd + 4; // '\r\n\r\n' = 4 belgi
+          // Oxiridagi \r\n ni olib tashlaymiz
+          const rawContent = part.slice(contentStart);
+          // Binary buffer sifatida olamiz
+          const contentBuf = rawContent.slice(0, rawContent.length - 2); // oxirgi \r\n
+
+          if (contentBuf.length === 0) continue;
+
+          files.push({ filename, mimeType, buffer: contentBuf });
+        }
+
+        resolve(files);
+      } catch (e) {
+        reject(e);
+      }
+    });
+  });
+};
+
+// Buffer'dan Readable stream yaratish
+const bufferToStream = (buffer) => {
+  const readable = new Readable();
+  readable.push(buffer);
+  readable.push(null);
+  return readable;
+};
+
+module.exports = async (req, res) => {
+  setCors(res);
 
   // CORS preflight
   if (req.method === 'OPTIONS') {
@@ -21,8 +114,6 @@ module.exports = async (req, res) => {
   const action = req.query.action;
 
   try {
-    const supabase = getSupabase();
-
     if (method === 'GET' && action === 'list') {
       const { folderId } = req.query;
       if (!folderId) return res.status(400).json({ error: 'Folder ID required' });
@@ -38,7 +129,7 @@ module.exports = async (req, res) => {
     }
 
     if (method === 'POST' && action === 'delete') {
-      const { fileId } = req.body; // Array of fileIds or single
+      const { fileId } = req.body;
       if (!fileId) return res.status(400).json({ error: 'File ID required' });
 
       const drive = getDriveClient();
@@ -55,57 +146,56 @@ module.exports = async (req, res) => {
       const folderId = req.query.folderId;
       if (!folderId) return res.status(400).json({ error: 'Folder ID required' });
 
-      const busboy = Busboy({ headers: req.headers });
+      // Fayllarni multipart'dan parse qilamiz
+      let files;
+      try {
+        files = await parseMultipart(req);
+      } catch (parseErr) {
+        console.error('Multipart parse error:', parseErr);
+        return res.status(400).json({ error: 'Faylni o\'qishda xatolik: ' + parseErr.message });
+      }
+
+      if (!files || files.length === 0) {
+        return res.status(400).json({ error: 'Hech qanday fayl topilmadi' });
+      }
+
       const drive = getDriveClient();
-      const uploads = [];
+      const uploadedFiles = [];
 
-      busboy.on('file', (fieldname, file, info) => {
-        const { filename, mimeType } = info;
-        
-        // Vercel serverless request stream is piped to Google Drive API
-        const passThrough = new PassThrough();
-        file.pipe(passThrough);
-
-        const uploadPromise = drive.files.create({
-          requestBody: {
-            name: filename,
-            parents: [folderId]
-          },
-          media: {
-            mimeType: mimeType,
-            body: passThrough
-          },
-          fields: 'id, name, webViewLink, webContentLink'
-        });
-
-        uploads.push(uploadPromise);
-      });
-
-      busboy.on('finish', async () => {
+      for (const file of files) {
         try {
-          const results = await Promise.all(uploads);
-          const uploadedFiles = results.map(r => r.data);
-          res.status(200).json({ success: true, files: uploadedFiles });
-        } catch (error) {
-          res.status(500).json({ error: error.message });
+          const stream = bufferToStream(file.buffer);
+          const result = await drive.files.create({
+            requestBody: {
+              name: file.filename,
+              parents: [folderId]
+            },
+            media: {
+              mimeType: file.mimeType,
+              body: stream
+            },
+            fields: 'id, name, webViewLink, webContentLink'
+          });
+          uploadedFiles.push(result.data);
+        } catch (uploadErr) {
+          console.error('Drive upload error for file', file.filename, ':', uploadErr);
+          return res.status(500).json({ error: `"${file.filename}" faylini yuklashda xatolik: ${uploadErr.message}` });
         }
-      });
+      }
 
-      // https://vercel.com/docs/concepts/functions/serverless-functions/supported-languages#node.js-request-and-response-objects
-      req.pipe(busboy);
-      return; // Do not send response yet, busboy will handle it
+      return res.status(200).json({ success: true, files: uploadedFiles });
     }
 
     return res.status(404).json({ error: 'Route not found' });
   } catch (err) {
-    console.error(err);
+    console.error('files.js error:', err);
     if (!res.headersSent) {
       res.status(500).json({ error: err.message });
     }
   }
 };
 
-// Vercel raw body config for Busboy parsing
+// Vercel raw body config - bodyParser o'chirilishi kerak multipart uchun
 module.exports.config = {
   api: {
     bodyParser: false,
