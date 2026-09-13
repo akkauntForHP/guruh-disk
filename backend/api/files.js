@@ -1,4 +1,4 @@
-const { supabase, getDriveClient } = require('./utils');
+const { getSupabase, getDriveClient } = require('./utils');
 const Busboy = require('busboy');
 const { PassThrough } = require('stream');
 
@@ -21,6 +21,8 @@ module.exports = async (req, res) => {
   const action = req.query.action;
 
   try {
+    const supabase = getSupabase();
+
     if (method === 'GET' && action === 'list') {
       const { folderId } = req.query;
       if (!folderId) return res.status(400).json({ error: 'Folder ID required' });
