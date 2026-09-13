@@ -4,7 +4,14 @@ const API_URL = 'https://guruh-disk.vercel.app/api'; // Agar Netlify va Vercel a
 
 async function fetchUsers() {
   const res = await fetch(`${API_URL}/users?action=list`);
-  if (!res.ok) throw new Error('Foydalanuvchilarni yuklashda xatolik');
+  if (!res.ok) {
+    let errMsg = 'Foydalanuvchilarni yuklashda xatolik';
+    try {
+      const errorData = await res.json();
+      if (errorData.error) errMsg = errorData.error;
+    } catch (e) {}
+    throw new Error(errMsg);
+  }
   return res.json();
 }
 
