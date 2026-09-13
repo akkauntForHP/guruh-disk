@@ -1,4 +1,4 @@
-const { supabase, getDriveClient } = require('./utils');
+const { getSupabase, getDriveClient } = require('./utils');
 const bcrypt = require('bcryptjs');
 
 module.exports = async (req, res) => {
@@ -17,9 +17,16 @@ module.exports = async (req, res) => {
   }
 
   const { method } = req;
-  const path = req.query.path || ''; // ?path=list or ?path=auth or ?path=set-password
+  const path = req.query.path || ''; 
 
   try {
+    // API holatini tekshirish uchun (DEBUG)
+    if (method === 'GET' && req.query.action === 'ping') {
+      return res.status(200).json({ status: 'ok', message: 'API is working!' });
+    }
+
+    const supabase = getSupabase();
+
     if (method === 'GET' && req.query.action === 'list') {
       const { data: users, error } = await supabase
         .from('users')
