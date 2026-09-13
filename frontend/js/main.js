@@ -40,7 +40,7 @@ function formatBytes(bytes, decimals = 2) {
 function showToast(message, isError = true) {
   toast.textContent = message;
   toast.className = `fixed top-4 left-1/2 transform -translate-x-1/2 px-4 py-2 rounded shadow-lg transition-transform duration-300 z-50 toast-show ${isError ? 'bg-red-500 text-white' : 'bg-green-500 text-white'}`;
-  
+
   setTimeout(() => {
     toast.classList.remove('toast-show');
     // Hide totally after transition
@@ -65,24 +65,24 @@ async function init() {
     setLoader(true);
     const data = await fetchUsers();
     usersData = data.users;
-    
+
     // Update Drive Storage Widget
     const driveWidget = document.getElementById('drive-widget');
     const driveText = document.getElementById('drive-text');
     const driveProgress = document.getElementById('drive-progress');
-    
+
     if (data.driveStorage) {
       const usage = parseInt(data.driveStorage.usage || 0);
       const limit = parseInt(data.driveStorage.limit || (15 * 1024 * 1024 * 1024));
       const percentage = Math.min((usage / limit) * 100, 100);
-      
+
       driveText.textContent = `${formatBytes(usage)} / ${formatBytes(limit)}`;
       driveProgress.style.width = `${percentage}%`;
-      
-      if(percentage > 90) driveProgress.classList.replace('bg-blue-500', 'bg-red-500');
-      else if(percentage > 70) driveProgress.classList.replace('bg-blue-500', 'bg-yellow-500');
+
+      if (percentage > 90) driveProgress.classList.replace('bg-blue-500', 'bg-red-500');
+      else if (percentage > 70) driveProgress.classList.replace('bg-blue-500', 'bg-yellow-500');
     }
-    
+
     renderFolders();
     foldersView.classList.remove('hidden');
   } catch (error) {
@@ -99,7 +99,7 @@ function renderFolders() {
     const li = document.createElement('li');
     li.className = 'p-4 hover:bg-gray-50 flex items-center justify-between cursor-pointer transition-colors';
     li.onclick = () => openFolderModal(user);
-    
+
     li.innerHTML = `
       <div class="flex items-center gap-3">
         <i class="fa-solid fa-folder text-yellow-400 text-2xl"></i>
@@ -117,7 +117,7 @@ function renderFolders() {
 function openFolderModal(user) {
   currentUserId = user.id;
   passwordInput.value = '';
-  
+
   if (!user.hasPassword) {
     isSettingPassword = true;
     modalTitle.textContent = "Yangi parol o'rnatish";
@@ -127,7 +127,7 @@ function openFolderModal(user) {
     modalTitle.textContent = "Parolni kiriting";
     modalDesc.textContent = `${user.name}, papkaga kirish uchun parolni kiriting.`;
   }
-  
+
   passwordModal.classList.remove('hidden');
   setTimeout(() => passwordInput.focus(), 100);
 }
@@ -145,14 +145,14 @@ passwordForm.onsubmit = async (e) => {
   e.preventDefault();
   const pwd = passwordInput.value;
   if (!pwd) return;
-  
+
   try {
     setLoader(true);
     if (isSettingPassword) {
       await setPassword(currentUserId, pwd);
       // Update local state
       const user = usersData.find(u => u.id === currentUserId);
-      if(user) user.hasPassword = true;
+      if (user) user.hasPassword = true;
       showToast("Parol muvaffaqiyatli o'rnatildi!", false);
       // Now authenticate to get folder ID
       const authData = await authenticate(currentUserId, pwd);
@@ -172,13 +172,13 @@ passwordForm.onsubmit = async (e) => {
 async function openFolder(folderId) {
   currentFolderId = folderId;
   closeModal();
-  
+
   const user = usersData.find(u => u.id === currentUserId);
   currentFolderName.textContent = user.name;
-  
+
   foldersView.classList.add('hidden');
   filesView.classList.remove('hidden');
-  
+
   await loadFiles();
 }
 
@@ -200,25 +200,25 @@ async function loadFiles() {
 function renderFiles() {
   filesList.innerHTML = '';
   btnDeleteSelected.classList.add('hidden');
-  
+
   if (filesData.length === 0) {
     emptyState.classList.remove('hidden');
     return;
   }
-  
+
   emptyState.classList.add('hidden');
-  
+
   filesData.forEach(file => {
     const li = document.createElement('li');
     li.className = 'p-3 sm:p-4 hover:bg-gray-50 flex items-center justify-between transition-colors gap-2 sm:gap-4';
-    
+
     // File Icon based on type (simple logic)
     let iconClass = 'fa-file text-gray-400';
-    if(file.name.includes('.pdf')) iconClass = 'fa-file-pdf text-red-500';
-    else if(file.name.match(/\.(jpg|jpeg|png|gif)$/i)) iconClass = 'fa-file-image text-blue-500';
-    else if(file.name.match(/\.(mp4|avi|mov)$/i)) iconClass = 'fa-file-video text-purple-500';
-    else if(file.name.includes('.zip') || file.name.includes('.rar')) iconClass = 'fa-file-zipper text-yellow-600';
-    else if(file.name.match(/\.(doc|docx)$/i)) iconClass = 'fa-file-word text-blue-700';
+    if (file.name.includes('.pdf')) iconClass = 'fa-file-pdf text-red-500';
+    else if (file.name.match(/\.(jpg|jpeg|png|gif)$/i)) iconClass = 'fa-file-image text-blue-500';
+    else if (file.name.match(/\.(mp4|avi|mov)$/i)) iconClass = 'fa-file-video text-purple-500';
+    else if (file.name.includes('.zip') || file.name.includes('.rar')) iconClass = 'fa-file-zipper text-yellow-600';
+    else if (file.name.match(/\.(doc|docx)$/i)) iconClass = 'fa-file-word text-blue-700';
 
     li.innerHTML = `
       <div class="flex items-center gap-3 flex-1 min-w-0">
@@ -270,11 +270,11 @@ btnBack.onclick = () => {
 btnDeleteSelected.onclick = async () => {
   const checked = document.querySelectorAll('.file-checkbox:checked');
   if (checked.length === 0) return;
-  
+
   if (!confirm('Tanlangan fayllarni o\'chirib tashlamoqchimisiz?')) return;
-  
+
   const ids = Array.from(checked).map(cb => cb.dataset.id);
-  
+
   try {
     setLoader(true);
     await deleteFiles(ids);
@@ -291,7 +291,7 @@ btnDeleteSelected.onclick = async () => {
 fileUpload.onchange = async (e) => {
   const files = e.target.files;
   if (!files.length) return;
-  
+
   try {
     setLoader(true);
     await uploadFiles(currentFolderId, files);
