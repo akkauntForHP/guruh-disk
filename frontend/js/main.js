@@ -7,6 +7,7 @@ let filesData = [];
 
 // DOM Elements
 const loader = document.getElementById('loader');
+const loaderText = document.getElementById('loader-text');
 const toast = document.getElementById('toast');
 const foldersView = document.getElementById('folders-view');
 const filesView = document.getElementById('files-view');
@@ -17,6 +18,8 @@ const currentFolderName = document.getElementById('current-folder-name');
 const emptyState = document.getElementById('empty-state');
 const fileUpload = document.getElementById('file-upload');
 const btnDeleteSelected = document.getElementById('btn-delete-selected');
+const dropZone = document.getElementById('drop-zone');
+const dragOverlay = document.getElementById('drag-overlay');
 
 // Modal Elements
 const passwordModal = document.getElementById('password-modal');
@@ -40,23 +43,24 @@ function formatBytes(bytes, decimals = 2) {
 // Show Toast
 function showToast(message, isError = true) {
   toast.textContent = message;
-  toast.className = `fixed top-4 left-1/2 transform -translate-x-1/2 px-4 py-2 rounded shadow-lg transition-transform duration-300 z-50 toast-show ${isError ? 'bg-red-500 text-white' : 'bg-green-500 text-white'}`;
+  toast.className = `fixed top-4 left-1/2 transform -translate-x-1/2 px-4 py-3 rounded-lg shadow-lg transition-transform duration-300 z-50 toast-show max-w-xs text-center text-sm ${isError ? 'bg-red-500 text-white' : 'bg-green-500 text-white'}`;
 
   setTimeout(() => {
     toast.classList.remove('toast-show');
-    // Hide totally after transition
     setTimeout(() => {
       toast.className = 'fixed top-4 left-1/2 transform -translate-x-1/2 bg-red-500 text-white px-4 py-2 rounded shadow-lg transition-transform duration-300 translate-y-[-150%] z-50';
     }, 300);
-  }, 3000);
+  }, 4000);
 }
 
 // Show/Hide Loader
-function setLoader(show) {
+function setLoader(show, text = '') {
   if (show) {
     loader.classList.remove('hidden');
+    loaderText.textContent = text;
   } else {
     loader.classList.add('hidden');
+    loaderText.textContent = '';
   }
 }
 
@@ -77,7 +81,7 @@ function setSubmitLoading(loading) {
 // Init App
 async function init() {
   try {
-    setLoader(true);
+    setLoader(true, 'Yuklanmoqda...');
     const data = await fetchUsers();
     usersData = data.users;
 
@@ -114,10 +118,9 @@ function renderFolders() {
     li.className = 'p-4 hover:bg-gray-50 flex items-center justify-between cursor-pointer transition-colors';
     li.onclick = () => openFolderModal(user);
 
-    // Parol qo'yilganmi yoki yo'qmi ko'rsatamiz
-    const lockIcon = user.hasPassword 
-      ? '<i class="fa-solid fa-lock text-green-500 text-sm"></i>' 
-      : '<i class="fa-solid fa-lock-open text-gray-400 text-sm"></i>';
+    const lockIcon = user.hasPassword
+      ? '<i class="fa-solid fa-lock text-green-500 text-sm" title="Parol o\'rnatilgan"></i>'
+      : '<i class="fa-solid fa-lock-open text-gray-400 text-sm" title="Parol o\'rnatilmagan"></i>';
 
     li.innerHTML = `
       <div class="flex items-center gap-3">
@@ -148,9 +151,7 @@ function openFolderModal(user) {
     modalDesc.textContent = `${user.name}, papkaga kirish uchun parolni kiriting.`;
   }
 
-  // Reset submit button state
   setSubmitLoading(false);
-  
   passwordModal.classList.remove('hidden');
   setTimeout(() => passwordInput.focus(), 100);
 }
@@ -184,22 +185,17 @@ passwordForm.onsubmit = async (e) => {
     setSubmitLoading(true);
 
     if (isSettingPassword) {
-      // Parol o'rnatish
       await setPassword(currentUserId, pwd);
-      // Update local state
       const user = usersData.find(u => u.id === currentUserId);
       if (user) user.hasPassword = true;
       showToast("Parol muvaffaqiyatli o'rnatildi!", false);
-      // Now authenticate to get folder ID
       const authData = await authenticate(currentUserId, pwd);
       openFolder(authData.folderId);
     } else {
-      // Parol tekshirish
       const authData = await authenticate(currentUserId, pwd);
       openFolder(authData.folderId);
     }
   } catch (error) {
-    // MUHIM: Modal yopilmasin, xatolik ko'rsatilsin va qayta kiritish imkoni bo'lsin
     showToast(error.message);
     passwordInput.value = '';
     passwordInput.focus();
@@ -224,7 +220,7 @@ async function openFolder(folderId) {
 // Load Files
 async function loadFiles() {
   try {
-    setLoader(true);
+    setLoader(true, 'Fayllar yuklanmoqda...');
     const data = await fetchFiles(currentFolderId);
     filesData = data.files || [];
     renderFiles();
@@ -251,9 +247,8 @@ function renderFiles() {
     const li = document.createElement('li');
     li.className = 'p-3 sm:p-4 hover:bg-gray-50 flex items-center justify-between transition-colors gap-2 sm:gap-4';
 
-    // File Icon based on type
     let iconClass = 'fa-file text-gray-400';
-    const name = file.name.toLowerCase();
+    const name = (file.name || '').toLowerCase();
     if (name.endsWith('.pdf')) iconClass = 'fa-file-pdf text-red-500';
     else if (name.match(/\.(jpg|jpeg|png|gif|webp|svg)$/)) iconClass = 'fa-file-image text-blue-500';
     else if (name.match(/\.(mp4|avi|mov|mkv|webm)$/)) iconClass = 'fa-file-video text-purple-500';
@@ -263,7 +258,7 @@ function renderFiles() {
     else if (name.match(/\.(xls|xlsx)$/)) iconClass = 'fa-file-excel text-green-600';
     else if (name.match(/\.(ppt|pptx)$/)) iconClass = 'fa-file-powerpoint text-orange-500';
     else if (name.match(/\.(txt|md)$/)) iconClass = 'fa-file-lines text-gray-500';
-    else if (name.match(/\.(py|js|html|css|java|c|cpp)$/)) iconClass = 'fa-file-code text-emerald-500';
+    else if (name.match(/\.(py|js|html|css|java|c|cpp|ts)$/)) iconClass = 'fa-file-code text-emerald-500';
 
     const downloadLink = file.webContentLink || `https://drive.google.com/uc?export=download&id=${file.id}`;
     const viewLink = file.webViewLink || `https://drive.google.com/file/d/${file.id}/view`;
@@ -274,7 +269,7 @@ function renderFiles() {
         <i class="fa-solid ${iconClass} text-xl sm:text-2xl flex-shrink-0"></i>
         <div class="flex flex-col min-w-0">
           <span class="font-medium text-gray-700 truncate">${file.name}</span>
-          <span class="text-xs text-gray-400">${file.size ? formatBytes(file.size) : ''} ${file.createdTime ? '• ' + new Date(file.createdTime).toLocaleDateString() : ''}</span>
+          <span class="text-xs text-gray-400">${file.size ? formatBytes(file.size) : ''}${file.createdTime ? ' • ' + new Date(file.createdTime).toLocaleDateString('uz-UZ') : ''}</span>
         </div>
       </div>
       
@@ -313,7 +308,6 @@ btnBack.onclick = () => {
   currentUserId = null;
   filesView.classList.add('hidden');
   foldersView.classList.remove('hidden');
-  // Parol holati tozalanadi (logout)
 };
 
 // Delete Selected
@@ -326,7 +320,7 @@ btnDeleteSelected.onclick = async () => {
   const ids = Array.from(checked).map(cb => cb.dataset.id);
 
   try {
-    setLoader(true);
+    setLoader(true, 'O\'chirilmoqda...');
     await deleteFiles(ids);
     showToast("Fayllar muvaffaqiyatli o'chirildi!", false);
     await loadFiles();
@@ -337,23 +331,85 @@ btnDeleteSelected.onclick = async () => {
   }
 };
 
-// Upload Files
-fileUpload.onchange = async (e) => {
-  const files = e.target.files;
-  if (!files.length) return;
+// Fayllarni yuklash umumiy funksiya
+async function handleFileUpload(fileList) {
+  if (!fileList || fileList.length === 0) return;
+
+  const fileNames = Array.from(fileList).map(f => f.name).join(', ');
+  const totalSize = Array.from(fileList).reduce((sum, f) => sum + f.size, 0);
 
   try {
-    setLoader(true);
-    await uploadFiles(currentFolderId, files);
-    showToast("Fayl(lar) muvaffaqiyatli yuklandi!", false);
+    setLoader(true, `Yuklanmoqda: ${fileNames.length > 50 ? fileNames.slice(0, 47) + '...' : fileNames} (${formatBytes(totalSize)})`);
+    await uploadFiles(currentFolderId, fileList);
+    showToast(`✅ ${fileList.length} ta fayl muvaffaqiyatli yuklandi!`, false);
     await loadFiles();
   } catch (error) {
-    showToast(error.message);
+    console.error('Upload error:', error);
+    showToast('Yuklashda xatolik: ' + error.message);
   } finally {
     setLoader(false);
-    fileUpload.value = ''; // Reset input
+    fileUpload.value = '';
   }
+}
+
+// Upload - file input orqali
+fileUpload.onchange = async (e) => {
+  await handleFileUpload(e.target.files);
 };
+
+// ============================================
+// DRAG & DROP
+// ============================================
+let dragCounter = 0; // Ichki elementlar uchun counter
+
+dropZone.addEventListener('dragenter', (e) => {
+  e.preventDefault();
+  e.stopPropagation();
+  dragCounter++;
+  if (dragCounter === 1) {
+    dragOverlay.classList.remove('hidden');
+    dragOverlay.classList.add('flex');
+  }
+});
+
+dropZone.addEventListener('dragleave', (e) => {
+  e.preventDefault();
+  e.stopPropagation();
+  dragCounter--;
+  if (dragCounter <= 0) {
+    dragCounter = 0;
+    dragOverlay.classList.add('hidden');
+    dragOverlay.classList.remove('flex');
+  }
+});
+
+dropZone.addEventListener('dragover', (e) => {
+  e.preventDefault();
+  e.stopPropagation();
+  e.dataTransfer.dropEffect = 'copy';
+});
+
+dropZone.addEventListener('drop', async (e) => {
+  e.preventDefault();
+  e.stopPropagation();
+  dragCounter = 0;
+  dragOverlay.classList.add('hidden');
+  dragOverlay.classList.remove('flex');
+
+  if (!currentFolderId) {
+    showToast('Avval papkani tanlang!');
+    return;
+  }
+
+  const files = e.dataTransfer.files;
+  if (files.length === 0) return;
+
+  await handleFileUpload(files);
+});
+
+// Sahifa miqyosidagi drag hodisalarini bloklash (tasodifiy open bo'lishini oldini olish)
+document.addEventListener('dragover', (e) => e.preventDefault());
+document.addEventListener('drop', (e) => e.preventDefault());
 
 // Start
 document.addEventListener('DOMContentLoaded', init);
