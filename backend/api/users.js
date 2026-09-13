@@ -85,7 +85,10 @@ module.exports = async (req, res) => {
       const drive = getDriveClient();
       let driveAbout = { usage: 0, limit: 15 * 1024 * 1024 * 1024 }; // Default 15 GB
       try {
-        const about = await drive.about.get({ fields: 'storageQuota' });
+        const about = await drive.about.get({ 
+          fields: 'storageQuota',
+          supportsAllDrives: true
+        });
         driveAbout = about.data.storageQuota;
       } catch (err) {
         console.error('Drive API error:', err);
@@ -126,7 +129,8 @@ module.exports = async (req, res) => {
               mimeType: 'application/vnd.google-apps.folder',
               parents: [process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID]
             },
-            fields: 'id'
+            fields: 'id',
+            supportsAllDrives: true
           });
           folderId = folder.data.id;
           await supabase.from('users').update({ drive_folder_id: folderId }).eq('id', user.id);
