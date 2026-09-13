@@ -1,5 +1,4 @@
 const { getSupabase, getDriveClient } = require('./utils');
-const bcrypt = require('bcryptjs');
 
 module.exports = async (req, res) => {
   // CORS headers
@@ -17,7 +16,6 @@ module.exports = async (req, res) => {
   }
 
   const { method } = req;
-  const path = req.query.path || ''; 
 
   try {
     // API holatini tekshirish uchun (DEBUG)
@@ -66,10 +64,11 @@ module.exports = async (req, res) => {
 
     const supabase = getSupabase();
 
+    // === FOYDALANUVCHILAR RO'YXATI ===
     if (method === 'GET' && req.query.action === 'list') {
       const { data: users, error } = await supabase
         .from('users')
-        .select('id, name, password_hash, drive_folder_id')
+        .select('id, name, password, drive_folder_id')
         .order('id', { ascending: true });
 
       if (error) throw error;
@@ -78,7 +77,7 @@ module.exports = async (req, res) => {
       const safeUsers = users.map(u => ({
         id: u.id,
         name: u.name,
-        hasPassword: !!u.password_hash,
+        hasPassword: !!u.password,
         hasFolder: !!u.drive_folder_id
       }));
 
@@ -95,44 +94,71 @@ module.exports = async (req, res) => {
       return res.status(200).json({ users: safeUsers, driveStorage: driveAbout });
     }
 
+    // === AUTENTIFIKATSIYA (parol tekshirish) ===
     if (method === 'POST' && req.query.action === 'auth') {
       const { id, password } = req.body;
-      const { data: user, error } = await supabase.from('users').select('*').eq('id', id).single();
       
-      if (error || !user) return res.status(404).json({ error: 'User not found' });
-      if (!user.password_hash) return res.status(400).json({ error: 'Password not set' });
+      if (!id || !password) {
+        return res.status(400).json({ error: 'ID va parol kiritilishi shart' });
+      }
 
-      const isValid = await bcrypt.compare(password, user.password_hash);
-      if (!isValid) return res.status(401).json({ error: 'Incorrect password' });
+      const { data: user, error } = await supabase.from('users').select('*').eq('id', id).single();
+
+      if (error || !user) return res.status(404).json({ error: 'Foydalanuvchi topilmadi' });
+      
+      if (!user.password) {
+        return res.status(400).json({ error: 'Parol hali o\'rnatilmagan. Avval parol o\'rnating.' });
+      }
+
+      // Oddiy parol solishtirish (bcrypt emas)
+      if (password !== user.password) {
+        return res.status(401).json({ error: 'Parol noto\'g\'ri' });
+      }
 
       // Agar papkasi yo'q bo'lsa, yaratamiz
       let folderId = user.drive_folder_id;
       if (!folderId) {
-        const drive = getDriveClient();
-        const folder = await drive.files.create({
-          requestBody: {
-            name: user.name,
-            mimeType: 'application/vnd.google-apps.folder',
-            parents: [process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID]
-          },
-          fields: 'id'
-        });
-        folderId = folder.data.id;
-        await supabase.from('users').update({ drive_folder_id: folderId }).eq('id', user.id);
+        try {
+          const drive = getDriveClient();
+          const folder = await drive.files.create({
+            requestBody: {
+              name: user.name,
+              mimeType: 'application/vnd.google-apps.folder',
+              parents: [process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID]
+            },
+            fields: 'id'
+          });
+          folderId = folder.data.id;
+          await supabase.from('users').update({ drive_folder_id: folderId }).eq('id', user.id);
+        } catch (driveErr) {
+          console.error('Drive folder creation error:', driveErr);
+          return res.status(500).json({ error: 'Google Drive papka yaratishda xatolik: ' + driveErr.message });
+        }
       }
 
       return res.status(200).json({ success: true, folderId });
     }
 
+    // === PAROL O'RNATISH (birinchi marta) ===
     if (method === 'POST' && req.query.action === 'set-password') {
       const { id, newPassword } = req.body;
+      
+      if (!id || !newPassword) {
+        return res.status(400).json({ error: 'ID va yangi parol kiritilishi shart' });
+      }
+
       const { data: user, error } = await supabase.from('users').select('*').eq('id', id).single();
 
-      if (error || !user) return res.status(404).json({ error: 'User not found' });
-      if (user.password_hash) return res.status(400).json({ error: 'Password already set' });
+      if (error || !user) return res.status(404).json({ error: 'Foydalanuvchi topilmadi' });
+      if (user.password) return res.status(400).json({ error: 'Parol allaqachon o\'rnatilgan' });
 
-      const hash = await bcrypt.hash(newPassword, 10);
-      await supabase.from('users').update({ password_hash: hash }).eq('id', id);
+      // Parolni oddiy text sifatida saqlaymiz (bcrypt emas)
+      const { error: updateError } = await supabase.from('users').update({ password: newPassword }).eq('id', id);
+      
+      if (updateError) {
+        console.error('Password update error:', updateError);
+        return res.status(500).json({ error: 'Parolni saqlashda xatolik: ' + updateError.message });
+      }
 
       return res.status(200).json({ success: true });
     }
