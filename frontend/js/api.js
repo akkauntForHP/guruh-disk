@@ -1,4 +1,4 @@
-const API_URL = '/api'; // Agar Netlify va Vercel alohida bo'lsa, bu yerga Vercel URL qo'yiladi (Masalan: https://guruh-disk-backend.vercel.app/api)
+const API_URL = 'https://guruh-disk.vercel.app/api'; // Agar Netlify va Vercel alohida bo'lsa, bu yerga Vercel URL qo'yiladi (Masalan: https://guruh-disk-backend.vercel.app/api)
 // Monorepo sifatida deploy qilinganda, odatda Vercel frontend va backendni birga xizmat qiladi, shuning uchun nisbiy manzil yetarli. 
 // Lekin hozir xavfsizlik va aniqlik uchun, agar alohida domenlar ishlatsangiz: const API_URL = 'YOUR_VERCEL_APP_URL/api';
 
