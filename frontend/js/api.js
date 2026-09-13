@@ -68,6 +68,13 @@ async function uploadFiles(folderId, fileList) {
     body: formData
   });
 
-  if (!res.ok) throw new Error('Yuklashda xatolik');
+  if (!res.ok) {
+    let errMsg = 'Yuklashda xatolik yuz berdi';
+    try {
+      const errData = await res.json();
+      if (errData.error) errMsg = errData.error;
+    } catch (e) {}
+    throw new Error(errMsg);
+  }
   return res.json();
 }
