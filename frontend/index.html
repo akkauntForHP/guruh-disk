@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Guruh Disk - Xavfsiz Fayl Almashish</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Custom CSS -->
+  <link rel="stylesheet" href="./css/style.css">
+  
+  <!-- Font Awesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="bg-gray-50 text-gray-800 font-sans h-screen flex flex-col overflow-hidden">
+
+  <!-- Header Widget (Drive Storage) -->
+  <header class="bg-white shadow-sm px-6 py-4 flex justify-between items-center border-b">
+    <div class="flex items-center gap-2">
+      <i class="fa-solid fa-cloud text-blue-500 text-xl"></i>
+      <h1 class="text-xl font-semibold">Guruh Disk</h1>
+    </div>
+    
+    <div class="flex items-center gap-4">
+      <div id="drive-widget" class="flex flex-col items-end">
+        <span class="text-sm text-gray-500" id="drive-text">Yuklanmoqda...</span>
+        <div class="w-32 h-2 bg-gray-200 rounded-full mt-1 overflow-hidden">
+          <div id="drive-progress" class="h-full bg-blue-500 transition-all duration-300" style="width: 0%"></div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content Area -->
+  <main class="flex-1 overflow-y-auto p-4 sm:p-6 relative">
+    
+    <!-- Loader -->
+    <div id="loader" class="absolute inset-0 bg-white/80 z-50 flex justify-center items-center backdrop-blur-sm">
+      <div class="animate-spin rounded-full h-12 w-12 border-4 border-blue-500 border-t-transparent"></div>
+    </div>
+
+    <!-- Error Toast -->
+    <div id="toast" class="fixed top-4 left-1/2 transform -translate-x-1/2 bg-red-500 text-white px-4 py-2 rounded shadow-lg transition-transform duration-300 translate-y-[-150%] z-50">
+      Xatolik yuz berdi!
+    </div>
+
+    <!-- View: Papkalar ro'yxati -->
+    <div id="folders-view" class="max-w-4xl mx-auto hidden">
+      <h2 class="text-lg font-medium mb-4 text-gray-700">Talabalar Papkalari</h2>
+      <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+        <ul id="folders-list" class="divide-y divide-gray-100">
+          <!-- JS orqali to'ldiriladi -->
+        </ul>
+      </div>
+    </div>
+
+    <!-- View: Fayllar ro'yxati -->
+    <div id="files-view" class="max-w-4xl mx-auto hidden h-full flex flex-col">
+      <div class="flex justify-between items-center mb-4">
+        <div class="flex items-center gap-3">
+          <button id="btn-back" class="text-gray-500 hover:text-blue-500 transition-colors p-2 rounded-full hover:bg-blue-50">
+            <i class="fa-solid fa-arrow-left"></i>
+          </button>
+          <h2 id="current-folder-name" class="text-xl font-medium text-gray-700">Papka</h2>
+        </div>
+        
+        <div class="flex gap-2">
+          <!-- Upload Button -->
+          <label class="cursor-pointer bg-blue-50 text-blue-600 hover:bg-blue-100 px-4 py-2 rounded-md transition-colors flex items-center gap-2 border border-blue-200">
+            <i class="fa-solid fa-upload"></i>
+            <span class="hidden sm:inline">Yuklash</span>
+            <input type="file" id="file-upload" class="hidden" multiple>
+          </label>
+
+          <!-- Delete Selected Button -->
+          <button id="btn-delete-selected" class="bg-red-50 text-red-600 hover:bg-red-100 px-4 py-2 rounded-md transition-colors items-center gap-2 border border-red-200 hidden">
+            <i class="fa-solid fa-trash"></i>
+            <span class="hidden sm:inline">O'chirish</span>
+          </button>
+        </div>
+      </div>
+      
+      <div class="bg-white rounded-lg shadow-sm border border-gray-200 flex-1 overflow-y-auto">
+        <ul id="files-list" class="divide-y divide-gray-100">
+          <!-- JS orqali to'ldiriladi -->
+        </ul>
+        <div id="empty-state" class="hidden flex flex-col items-center justify-center py-16 text-gray-400">
+          <i class="fa-solid fa-folder-open text-4xl mb-3"></i>
+          <p>Papka bo'sh</p>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Modal: Parol so'rash / O'rnatish -->
+  <div id="password-modal" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-[100] hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-xl shadow-xl w-full max-w-sm overflow-hidden animate-fade-in-up">
+      <div class="p-6">
+        <div class="flex justify-between items-center mb-4">
+          <h3 id="modal-title" class="text-lg font-semibold text-gray-800">Parolni kiriting</h3>
+          <button id="btn-close-modal" class="text-gray-400 hover:text-gray-600">
+            <i class="fa-solid fa-xmark text-xl"></i>
+          </button>
+        </div>
+        
+        <p id="modal-desc" class="text-sm text-gray-500 mb-4">Ushbu papkaga kirish uchun parolni kiritishingiz kerak.</p>
+        
+        <form id="password-form">
+          <div class="relative mb-4">
+            <i class="fa-solid fa-lock absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+            <input type="password" id="password-input" class="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-shadow" placeholder="Parol" required>
+          </div>
+          
+          <button type="submit" id="btn-submit-password" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 rounded-lg transition-colors flex justify-center items-center">
+            <span>Tasdiqlash</span>
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <script src="./js/api.js"></script>
+  <script src="./js/main.js"></script>
+</body>
+</html>
